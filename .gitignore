@@ -1,0 +1,6 @@
+__pycache__/
+*.py[cod]
+ddu_control.db
+ddu_control.db-shm
+ddu_control.db-wal
+.env
