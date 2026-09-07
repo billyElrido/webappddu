@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id" prefix="og: https://ogp.me/ns#">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="Dashboard transparansi publik Yayasan Dompet Dana Umat Daarul Uluum Bogor">
+  <title>Transparansi Publik | Dompet Dana Umat</title>
+  <link rel="canonical" href="https://app.dompetdanaumat.com/transparansi.html">
+  <link rel="icon" type="image/png" href="https://app.dompetdanaumat.com/assets/images/logo-ddu.png">
+  <link rel="apple-touch-icon" href="https://app.dompetdanaumat.com/assets/images/logo-ddu.png">
+  <meta property="og:locale" content="id_ID">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Dompet Dana Umat">
+  <meta property="og:title" content="Transparansi Publik | Dompet Dana Umat">
+  <meta property="og:description" content="Informasi umum aktivitas dan pengelolaan dana lembaga yang telah dilaporkan dan disetujui Ketua.">
+  <meta property="og:url" content="https://app.dompetdanaumat.com/transparansi.html">
+  <meta property="og:image" content="https://app.dompetdanaumat.com/assets/images/logo-ddu.png?v=20260907">
+  <meta property="og:image:secure_url" content="https://app.dompetdanaumat.com/assets/images/logo-ddu.png?v=20260907">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="2307">
+  <meta property="og:image:height" content="2326">
+  <meta property="og:image:alt" content="Logo Dompet Dana Umat">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Transparansi Publik | Dompet Dana Umat">
+  <meta name="twitter:description" content="Informasi umum aktivitas dan pengelolaan dana lembaga yang telah dilaporkan dan disetujui Ketua.">
+  <meta name="twitter:image" content="https://app.dompetdanaumat.com/assets/images/logo-ddu.png?v=20260907">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700;800&family=Manrope:wght@700;800&display=swap">
+  <link rel="stylesheet" href="assets/css/transparency.css?v=20260904-3">
+  <link rel="stylesheet" href="assets/css/transparency-responsive.css?v=20260904-3">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+  <script src="assets/js/transparency.js?v=20260904-5" defer></script>
+</head>
+<body>
+  <header class="public-header"><a href="https://dompetdanaumat.com/"><img src="assets/images/logo-ddu.png" alt="Logo Dompet Dana Umat"><span><b>Dompet Dana Umat</b><small>Daarul Uluum &middot; Bogor</small></span></a><span class="verified" id="publicDataBadge">Data Terverifikasi &#10003;</span></header>
+  <main>
+    <section class="public-hero"><div><span>TRANSPARANSI PUBLIK</span><h1>Amanah dihimpun,<br>manfaat disalurkan.</h1><p>Informasi umum aktivitas dan pengelolaan dana lembaga yang telah ditinjau serta disetujui untuk dipublikasikan.</p></div><div class="score"><strong id="publicPercentage">0%</strong><span>Persentase penyaluran</span></div></section>
+    <section class="update-note" id="publicUpdate">Memuat data publik...</section>
+    <section class="public-kpis"><article><span>Dana terhimpun</span><strong id="publicIncome">Rp 0</strong></article><article><span>Penyaluran & penggunaan</span><strong id="publicExpense">Rp 0</strong></article><article><span>Program berkegiatan</span><strong id="publicPrograms">0</strong></article><article><span>Donatur & mitra aktif</span><strong id="publicPartners">0</strong></article></section>
+    <section class="public-grid"><article class="visual"><div class="heading"><h2>Diagram Batang Penerimaan</h2><span>Per bulan</span></div><div class="canvas"><canvas id="publicTrendChart"></canvas></div></article><article class="visual"><div class="heading"><h2>Sumber Penerimaan</h2><span>Berdasarkan kategori</span></div><div class="canvas pie"><canvas id="publicCategoryChart"></canvas></div></article></section>
+    <section class="public-grid public-analysis-grid"><article class="visual"><div class="heading"><h2>Diagram Garis Pertumbuhan Dana</h2><span>Akumulasi tahun berjalan</span></div><div class="canvas"><canvas id="publicLineChart"></canvas></div></article><article class="visual public-percentage"><div class="heading"><h2>Kegiatan Tercatat</h2></div><div class="percentage-ring activity-ring" id="publicActivityRing"><strong id="publicActivities">0</strong></div><p>Jumlah kegiatan lembaga yang tercatat pada periode publikasi.</p></article></section>
+    <section class="public-message"><h2>Informasi yang ditampilkan</h2><p>Halaman publik hanya menyajikan informasi umum yang telah dilaporkan dan disetujui Ketua.</p></section>
+    <section class="empty-public" id="publicEmpty" hidden><h2>Belum ada data yang dipublikasikan</h2><p>Data akan tampil setelah Ketua meninjau dan menyetujui publikasi pertama.</p></section>
+  </main>
+  <footer>&copy; <span id="publicYear"></span> Yayasan Dompet Dana Umat Daarul Uluum &middot; <a href="https://dompetdanaumat.com/">dompetdanaumat.com</a></footer>
+</body>
+</html>

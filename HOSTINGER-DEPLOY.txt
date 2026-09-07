@@ -1,0 +1,44 @@
+DDU APP - PETUNJUK DEPLOY HOSTINGER
+
+PAKET 1: dduapp-hostinger-ready-v2.zip
+Upload melalui Deploy Aplikasi Web Node.js > Upload file.
+
+Konfigurasi:
+- Node.js: 22.x
+- Build command: npm ci
+- Start command: npm start
+- Entry file: server.js
+
+Environment variables:
+NODE_ENV=production
+DDU_HTTPS=1
+DDU_SESSION_IDLE_MINUTES=30
+DDU_SESSION_ABSOLUTE_HOURS=8
+DDU_TRUST_PROXY=1
+DDU_INITIAL_PASSWORD=<buat password kuat>
+DDU_LARGE_DISBURSEMENT_LIMIT=5000000
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=<nama lengkap database dari hPanel>
+DB_USER=<nama lengkap pengguna database dari hPanel>
+DB_PASSWORD=<password database>
+DB_SSL=0
+
+PAKET 2: dduapp-database-import.zip
+Ekstrak dahulu bila phpMyAdmin tidak menerima ZIP, lalu impor
+dduapp-mysql-import.sql ke database MySQL kosong melalui phpMyAdmin.
+
+Urutan aman:
+1. Buat database dan pengguna MySQL di hPanel.
+2. Impor dduapp-mysql-import.sql melalui phpMyAdmin.
+3. Upload dan deploy dduapp-hostinger.zip.
+4. Isi environment variables.
+5. Buka /api/health; hasil yang benar memuat database=mysql dan ok=true.
+6. Login dan ganti kata sandi akun bila diperlukan.
+
+Pembaruan tahun buku:
+- Kolom target_year dan tabel fiscal_years dibuat otomatis saat aplikasi pertama kali dijalankan.
+- Jangan mengimpor ulang database lama ke database produksi yang sudah berisi data.
+- Setelah deploy, buka Program & Target dan pastikan tahun berjalan berstatus Berjalan.
+
+Jangan mengunggah .env, ddu_control.db, migration-data.json, atau node_modules.

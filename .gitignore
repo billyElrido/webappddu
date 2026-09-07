@@ -4,3 +4,13 @@ ddu_control.db
 ddu_control.db-shm
 ddu_control.db-wal
 .env
+hostinger.env
+mysql-local.ini
+mysql-data/
+node_modules/
+npm-debug.log*
+migration-data*.json
+backups/
+deploy/
+*.zip
+*.sql
