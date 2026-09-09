@@ -37,8 +37,10 @@ Buka `http://127.0.0.1:8000`. Skema MySQL dan akun utama dibuat otomatis. `serve
 - Siklus tahun buku memisahkan target dan program setiap tahun dengan status Perencanaan, Berjalan, dan Ditutup.
 - Database muzaki/donatur dan status keaktifannya.
 - Daftar donatur dapat diunduh sebagai Excel untuk rentang waktu terpilih atau seluruh data sesuai hak akses akun.
-- Pencatatan pemasukan, pengeluaran, dan saldo bulanan per divisi.
-- Daftar transaksi dapat diunduh sebagai Excel untuk rentang waktu terpilih atau seluruh data sesuai hak akses akun.
+- Laporan Keuangan dipisahkan menjadi **Pemasukan Donasi** per donatur/mitra dan **Penggunaan Anggaran** yang berasal dari pengajuan, pencairan, serta LPJ terpusat.
+- Donatur/mitra baru pada input atau impor pemasukan otomatis dibuat satu kali di Data Donatur pusat; donasi berikutnya ditautkan ke profil yang sudah ada.
+- Dashboard unit menampilkan rasio biaya kerja terhadap pemasukan donasi unit. Untuk Ketua, Sekretaris, Bendahara, dan Administrasi, biaya operasional lembaga dibandingkan dengan total pemasukan donasi seluruh unit.
+- Pemasukan donasi dan penggunaan anggaran dapat diunduh sebagai Excel sesuai periode dan hak akses akun.
 - Sesi pengguna otomatis berakhir setelah 30 menit tanpa aktivitas dan selalu berakhir setelah maksimum 8 jam. Atur melalui `DDU_SESSION_IDLE_MINUTES` (5–480 menit) dan `DDU_SESSION_ABSOLUTE_HOURS` (1–24 jam).
 - Cookie autentikasi bersifat nonpersisten, `HttpOnly`, `SameSite=Strict`, dan memakai prefiks `__Host-` pada HTTPS. Menutup browser menghapus cookie sesi.
 - Percobaan login dibatasi berdasarkan akun dan alamat jaringan, tetap berlaku setelah server dimulai ulang, serta kata sandi baru disimpan dengan PBKDF2-HMAC-SHA256 600.000 iterasi.
@@ -58,8 +60,8 @@ Buka `http://127.0.0.1:8000`. Skema MySQL dan akun utama dibuat otomatis. `serve
 Pusat impor menyediakan template Excel (`.xlsx`) terpisah untuk:
 
 - donatur dan mitra;
-- pemasukan;
-- pengeluaran;
+- pemasukan donasi beserta identitas profil donor baru;
+- penggunaan anggaran berdasarkan kode pengajuan;
 - program dan target;
 - capaian target; dan
 - laporan realisasi beserta SWOT.
@@ -72,7 +74,9 @@ Nama program pada template capaian dan realisasi harus sama dengan nama aktif pa
 
 Template target memiliki kolom `target_year`. Target dengan nama yang sama dapat memiliki nilai berbeda pada setiap tahun tanpa mengubah arsip tahun sebelumnya.
 
-Target berbentuk uang menggunakan transaksi **Pemasukan** sebagai satu-satunya sumber realisasi agar nominal tidak dihitung dua kali. Template **Capaian Target** digunakan untuk target jumlah dan aktivitas; laporan realisasi uang tetap dapat disimpan sebagai laporan naratif tanpa menambah nominal dashboard.
+Target berbentuk uang menggunakan transaksi **Pemasukan** sebagai satu-satunya sumber realisasi agar nominal tidak dihitung dua kali. Target jumlah dan aktivitas menggunakan template **Realisasi & Capaian** sebagai satu pintu laporan sekaligus pembaruan dashboard terpusat. Template **Capaian Target** lama tetap diterima untuk kompatibilitas, tetapi tidak lagi ditampilkan sebagai pilihan impor data baru.
+
+Pada template **Pemasukan Donasi**, nama yang sama pada unit yang sama ditautkan sebagai donasi berulang. Nama yang belum tersedia otomatis menjadi profil baru menggunakan kolom telepon, jenis donatur/mitra, frekuensi donasi, dan jenis penitipan. Template **Penggunaan Anggaran** hanya menerima kode pengajuan yang telah dicairkan agar LPJ dan laporan keuangan tidak tercatat ganda.
 
 ## Pergantian tahun buku
 
@@ -81,7 +85,15 @@ Target berbentuk uang menggunakan transaksi **Pemasukan** sebagai satu-satunya s
 3. Ketua menyelesaikan seluruh pengajuan anggaran/pengeluaran tertunda lalu menutup tahun berjalan. Tahun yang ditutup tetap dapat dibuka sebagai laporan, tetapi seluruh perubahan datanya ditolak server.
 4. Setelah tahun lama ditutup, Ketua membuka tahun baru. Transaksi, capaian, realisasi, evaluasi, dan pengajuan baru kemudian dapat dicatat pada tahun tersebut.
 
-Kolom `targets.target_year` dan tabel `fiscal_years` dibuat atau dimigrasikan otomatis ketika `server.js` pertama kali dijalankan setelah pembaruan.
+Kolom `targets.target_year`, relasi `transactions.donor_id`, serta tabel pendukung tahun buku dibuat atau dimigrasikan otomatis ketika `server.js` pertama kali dijalankan setelah pembaruan.
+
+## Tahun ajaran dan kenaikan kelas
+
+Menu **Data Referensi** menyediakan pilihan Jenjang Pendidikan dan Kelas/Rombel terpusat: MTs/SMP kelas 7–9 serta MA/SMA kelas 10–12, masing-masing rombel A–D. Data kelas bersifat opsional untuk donatur/mitra yang bukan siswa.
+
+Ketua atau Sekretaris dapat memakai panel **Pengaturan Tahun Ajaran** untuk membuka tahun berikutnya. Sistem membuat riwayat baru tanpa mengubah transaksi atau laporan lama, menaikkan siswa satu tingkat dengan rombel yang sama, serta menandai kelas 9 MTs/SMP dan kelas 12 MA/SMA sebagai lulus. Tabel `academic_years`, `donor_class_assignments`, dan kolom akademik lama dibuat atau dimigrasikan otomatis saat server terbaru dijalankan.
+
+Penyimpanan ganda pada Data Referensi, donatur/mitra, transaksi, realisasi, evaluasi, target, dan pengajuan anggaran ditolak dengan pemberitahuan konflik. Impor Excel diproses secara atomik: jika satu baris tidak valid atau duplikat, seluruh berkas dibatalkan agar Satu Data tetap konsisten.
 
 ## Akun pengurus
 
@@ -120,7 +132,7 @@ npm run db:import
 
 `migration-data.json`, database SQLite, `.env`, dan direktori backup tidak dilacak Git. Impor menolak database tujuan yang sudah berisi akun untuk mencegah duplikasi atau penimpaan data.
 
-Pengeluaran sebesar Rp5.000.000 atau lebih otomatis menunggu persetujuan Ketua. Batas ini dapat diubah sebelum server dijalankan melalui environment variable `DDU_LARGE_DISBURSEMENT_LIMIT` (isi dengan nominal rupiah tanpa tanda baca).
+Pada alur **Pengajuan Anggaran**, batas persetujuan Ketua tersimpan terpusat di database dengan nilai awal Rp500.000. Pengajuan di bawah batas cukup diverifikasi Bendahara, sedangkan pengajuan senilai atau di atas batas diteruskan kepada Ketua. Ketua dapat mengubah batas tersebut langsung dari halaman Pengajuan Anggaran; perubahan berlaku untuk pengajuan baru dan nilai kebijakan yang berlaku disimpan pada setiap pengajuan sebagai jejak audit.
 
 ## Rekomendasi AI laporan Sekretaris
 

@@ -51,8 +51,11 @@
     try {
       const data = await api('/api/donors?' + rangeQuery());
       const rows = document.querySelectorAll('#donorRows tr');
+      const table = document.getElementById('donorRows')?.closest('table');
+      const locationIndex = [...(table?.querySelectorAll('thead th') || [])]
+        .findIndex(header => header.textContent.trim() === 'Lokasi');
       data.items.forEach((donor, index) => {
-        const locationCell = rows[index]?.children[6];
+        const locationCell = locationIndex >= 0 ? rows[index]?.children[locationIndex] : null;
         if (!locationCell || donor.division !== currentUser.division) return;
         const editButton = document.createElement('button');
         editButton.type = 'button';

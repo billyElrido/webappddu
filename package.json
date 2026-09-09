@@ -6,11 +6,15 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check excel-import.js && node --check scripts/import-mysql.js && node --check scripts/check-mysql.js && node --check scripts/test-excel-import.js",
+    "check": "node --check server.js && node --check default-targets.js && node --check excel-import.js && node --check reference-data.js && node --check assets/js/app.js && node --check assets/js/account-dashboard.js && node --check assets/js/division-labels.js && node --check assets/js/donor-location.js && node --check assets/js/finance-origin.js && node --check assets/js/login-landing.js && node --check assets/js/redirect.js && node --check assets/js/scope-lock.js && node --check assets/js/supervisor-dashboard.js && node --check assets/js/transparency-admin.js && node --check assets/js/transparency.js && node --check scripts/import-mysql.js && node --check scripts/check-mysql.js && node --check scripts/test-excel-import.js && node --check scripts/test-academic-integration.js && node --check scripts/test-donor-access.js && node --check scripts/test-delete-actions.js && node --check scripts/test-finance-integration.js",
     "db:check": "node scripts/check-mysql.js",
     "db:import": "node scripts/import-mysql.js",
     "db:seed-targets": "node scripts/seed-default-targets.js",
-    "test:central": "node scripts/test-central-integration.js",
+    "test:finance": "node --env-file=.env scripts/test-finance-integration.js",
+    "test:central": "node --env-file=.env scripts/test-central-integration.js",
+    "test:academic": "node --env-file=.env scripts/test-academic-integration.js",
+    "test:donor-access": "node --env-file=.env scripts/test-donor-access.js",
+    "test:delete": "node --env-file=.env scripts/test-delete-actions.js",
     "test:excel": "node scripts/test-excel-import.js"
   },
   "engines": {

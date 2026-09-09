@@ -3,7 +3,7 @@
 const crypto = require('crypto');
 const mysql = require('mysql2/promise');
 
-const baseUrl = process.env.DDU_TEST_URL || 'http://127.0.0.1:8011';
+const baseUrl = process.env.DDU_TEST_URL || 'http://127.0.0.1:8000';
 
 async function main() {
   const connection = await mysql.createConnection({
@@ -19,7 +19,8 @@ async function main() {
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
   const csrf = crypto.randomBytes(24).toString('base64url');
   const currentYear = new Date().getFullYear(), currentMonth = `${currentYear}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
-  let supervisorTokenHash = '', expiredTokenHash = '', absoluteTokenHash = '', temporaryFiscalYear = 0, securityUserId = 0;
+  let supervisorTokenHash = '', expiredTokenHash = '', absoluteTokenHash = '', temporaryFiscalYear = 0, securityUserId = 0, budgetRequestId = 0, budgetApprovalRequestId = 0, originalBudgetLimit = null;
+  const budgetSessionHashes = [];
   try {
     const [[user]] = await connection.execute("SELECT id FROM users WHERE role='ketua' AND active=1 ORDER BY id LIMIT 1");
     const [[target]] = await connection.execute("SELECT id,division,program,target_type,period,target_year,target_value,unit,note FROM targets WHERE division='Divisi 1' AND target_year=YEAR(CURDATE()) AND active=1 ORDER BY id LIMIT 1");
@@ -41,6 +42,56 @@ async function main() {
     const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     await connection.execute('INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at,created_at) VALUES(?,?,?,?,?)', [tokenHash, user.id, csrf, expires, timestamp]);
     const headers = { Cookie: `ddu_session=${token}` };
+    const [[originalBudgetSetting]] = await connection.execute("SELECT setting_value FROM app_settings WHERE setting_key='budget_chair_approval_limit'");
+    originalBudgetLimit = originalBudgetSetting?.setting_value ?? '500000';
+    const settingResponse = await fetch(`${baseUrl}/api/budget-settings`, { method: 'PUT', headers: { ...headers, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify({ chair_approval_limit: 500000 }) });
+    if (settingResponse.status !== 200) throw Error(`Pengaturan batas persetujuan Ketua mengembalikan ${settingResponse.status}.`);
+    const [[budgetRequester]] = await connection.execute("SELECT id,division FROM users WHERE active=1 AND role='divisi' AND division NOT IN ('Bendahara','Administrasi','Dewan Pengawas') ORDER BY CASE WHEN division='Divisi 1' THEN 0 ELSE 1 END,id LIMIT 1");
+    if (!budgetRequester) throw Error('Akun unit untuk pengujian pengajuan anggaran tidak tersedia.');
+    const requesterToken = crypto.randomBytes(32).toString('base64url'), requesterHash = crypto.createHash('sha256').update(requesterToken).digest('hex'), requesterCsrf = crypto.randomBytes(24).toString('base64url');
+    await connection.execute('INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at,created_at) VALUES(?,?,?,?,?)', [requesterHash, budgetRequester.id, requesterCsrf, expires, timestamp]);
+    budgetSessionHashes.push(requesterHash);
+    const requesterHeaders = { Cookie: `ddu_session=${requesterToken}` };
+    const forbiddenSetting = await fetch(`${baseUrl}/api/budget-settings`, { method: 'PUT', headers: { ...requesterHeaders, 'Content-Type': 'application/json', 'X-CSRF-Token': requesterCsrf }, body: JSON.stringify({ chair_approval_limit: 1 }) });
+    if (forbiddenSetting.status !== 403) throw Error('Akun selain Ketua dapat mengubah batas persetujuan anggaran.');
+    const budgetResponse = await fetch(`${baseUrl}/api/budget-requests`, {
+      method: 'POST', headers: { ...requesterHeaders, 'Content-Type': 'application/json', 'X-CSRF-Token': requesterCsrf },
+      body: JSON.stringify({ amount: 499999, purpose: `Uji pengajuan anggaran tanpa Ketua ${Date.now()}` })
+    });
+    const budgetPayload = await budgetResponse.json();
+    if (budgetResponse.status !== 201 || !budgetPayload.id) throw Error(`Pengajuan anggaran mengembalikan ${budgetResponse.status}: ${budgetPayload.error || 'respons tidak valid'}.`);
+    budgetRequestId = Number(budgetPayload.id);
+    const approvalBudgetResponse = await fetch(`${baseUrl}/api/budget-requests`, {
+      method: 'POST', headers: { ...requesterHeaders, 'Content-Type': 'application/json', 'X-CSRF-Token': requesterCsrf },
+      body: JSON.stringify({ amount: 500000, purpose: `Uji pengajuan anggaran dengan Ketua ${Date.now()}` })
+    });
+    const approvalBudgetPayload = await approvalBudgetResponse.json();
+    if (approvalBudgetResponse.status !== 201 || !approvalBudgetPayload.id) throw Error(`Pengajuan batas persetujuan mengembalikan ${approvalBudgetResponse.status}.`);
+    budgetApprovalRequestId = Number(approvalBudgetPayload.id);
+    const [[storedBudget]] = await connection.execute('SELECT requester_id,division,status,rejection_note,chair_approval_required,chair_approval_limit FROM budget_requests WHERE id=?', [budgetRequestId]);
+    const [[storedApprovalBudget]] = await connection.execute('SELECT status,chair_approval_required,chair_approval_limit FROM budget_requests WHERE id=?', [budgetApprovalRequestId]);
+    if (!storedBudget || Number(storedBudget.requester_id) !== Number(budgetRequester.id) || storedBudget.division !== budgetRequester.division || storedBudget.status !== 'submitted' || storedBudget.rejection_note !== '' || Number(storedBudget.chair_approval_required) !== 0 || Number(storedBudget.chair_approval_limit) !== 500000) throw Error('Pengajuan di bawah batas tidak tersimpan sesuai kebijakan pusat.');
+    if (!storedApprovalBudget || Number(storedApprovalBudget.chair_approval_required) !== 1 || Number(storedApprovalBudget.chair_approval_limit) !== 500000) throw Error('Pengajuan pada batas Rp500.000 tidak ditandai wajib persetujuan Ketua.');
+    const [budgetAccounts] = await connection.execute('SELECT id,role,division FROM users WHERE active=1 AND id<>? ORDER BY id', [securityUserId]);
+    for (const account of budgetAccounts) {
+      const accountToken = crypto.randomBytes(32).toString('base64url'), accountHash = crypto.createHash('sha256').update(accountToken).digest('hex'), accountCsrf = crypto.randomBytes(24).toString('base64url');
+      await connection.execute('INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at,created_at) VALUES(?,?,?,?,?)', [accountHash, account.id, accountCsrf, expires, timestamp]);
+      budgetSessionHashes.push(accountHash);
+      const response = await fetch(`${baseUrl}/api/budget-requests`, { headers: { Cookie: `ddu_session=${accountToken}` } });
+      const payload = await response.json(), visible = Boolean(payload.items?.some(item => Number(item.id) === budgetRequestId));
+      const shouldSee = ['ketua','sekretaris'].includes(account.role) || ['Bendahara','Administrasi'].includes(account.division) || account.division === budgetRequester.division;
+      if (response.status !== 200 || visible !== shouldSee) throw Error(`Ruang data pengajuan anggaran tidak sesuai untuk akun ${account.division}.`);
+      if (account.division === 'Bendahara') {
+        for (const requestId of [budgetRequestId,budgetApprovalRequestId]) {
+          const approvalResponse = await fetch(`${baseUrl}/api/budget-requests`, { method: 'PUT', headers: { Cookie: `ddu_session=${accountToken}`, 'Content-Type': 'application/json', 'X-CSRF-Token': accountCsrf }, body: JSON.stringify({ id: requestId, action: 'treasurer_approve' }) });
+          if (approvalResponse.status !== 200) throw Error(`Verifikasi Bendahara gagal untuk pengajuan ${requestId}.`);
+        }
+      }
+    }
+    const [[belowAfterTreasurer]] = await connection.execute('SELECT status FROM budget_requests WHERE id=?', [budgetRequestId]);
+    const [[thresholdAfterTreasurer]] = await connection.execute('SELECT status FROM budget_requests WHERE id=?', [budgetApprovalRequestId]);
+    if (belowAfterTreasurer?.status !== 'chair_approved') throw Error('Pengajuan di bawah Rp500.000 tidak langsung siap dicairkan setelah verifikasi Bendahara.');
+    if (thresholdAfterTreasurer?.status !== 'treasurer_approved') throw Error('Pengajuan Rp500.000 tidak diteruskan kepada Ketua.');
     const activityResponse = await fetch(`${baseUrl}/api/session/activity`, {
       method: 'POST', headers: { ...headers, 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: '{}'
     });
@@ -67,6 +118,15 @@ async function main() {
     const targetsPayload = await targetsResponse.json();
     if (!Array.isArray(targetsPayload.items)) throw Error('Respons target terpusat tidak valid.');
     if (!targetsPayload.items.every(item => Number(item.target_year) === currentYear)) throw Error('Target tidak terpisah sesuai tahun buku.');
+    const [[administrationAccount]] = await connection.execute("SELECT id FROM users WHERE division='Administrasi' AND active=1 ORDER BY id LIMIT 1");
+    if (!administrationAccount) throw Error('Akun Administrasi tidak tersedia untuk pengujian filter target.');
+    const administrationToken = crypto.randomBytes(32).toString('base64url'), administrationHash = crypto.createHash('sha256').update(administrationToken).digest('hex');
+    await connection.execute('INSERT INTO sessions(token_hash,user_id,csrf_token,expires_at,created_at) VALUES(?,?,?,?,?)', [administrationHash, administrationAccount.id, crypto.randomBytes(24).toString('base64url'), expires, timestamp]);
+    budgetSessionHashes.push(administrationHash);
+    const administrationMe = await (await fetch(`${baseUrl}/api/me`, { headers: { Cookie: `ddu_session=${administrationToken}` } })).json();
+    const administrationTargetsResponse = await fetch(`${baseUrl}/api/targets?consolidated=1&month=${currentMonth}&year=${currentYear}&date_from=${currentYear}-01-01&date_to=${currentYear}-12-31`, { headers: { Cookie: `ddu_session=${administrationToken}` } });
+    const administrationTargets = await administrationTargetsResponse.json();
+    if (administrationTargetsResponse.status !== 200 || !administrationTargets.items?.some(item => item.division === 'Administrasi') || administrationTargets.items.some(item => ['Ketua','Sekretaris'].includes(item.division))) throw Error(`Cakupan kartu Program & Target Administrasi tidak sesuai kewenangan terpusat (akun: ${administrationMe.user?.role}/${administrationMe.user?.division}; cakupan: ${administrationTargets.division}; HTTP ${administrationTargetsResponse.status}; unit: ${[...new Set((administrationTargets.items||[]).map(item=>item.division))].join(', ')||administrationTargets.error||'kosong'}).`);
     const fiscalResponse = await fetch(`${baseUrl}/api/fiscal-years`, { headers });
     if (fiscalResponse.status !== 200) throw Error(`Endpoint tahun buku mengembalikan ${fiscalResponse.status}.`);
     const fiscalPayload = await fiscalResponse.json();
@@ -123,13 +183,17 @@ async function main() {
     if (importResponse.status !== 400) throw Error(`Impor invalid seharusnya 400, diterima ${importResponse.status}.`);
     const [[after]] = await connection.execute('SELECT note FROM targets WHERE id=?', [target.id]);
     if (after.note === marker || after.note !== target.note) throw Error('Transaksi impor tidak berhasil di-rollback.');
-    console.log('Integrasi pusat OK: sesi idle/absolut, header keamanan, pemisahan tahun, perencanaan, penguncian input, dashboard pengawas, dan rollback atomik.');
+    console.log('Integrasi pusat OK: anggaran lintas akun, sesi, pemisahan tahun, dashboard pengawas, dan rollback atomik.');
   } finally {
     await connection.execute('DELETE FROM sessions WHERE token_hash=?', [tokenHash]).catch(() => {});
     if (expiredTokenHash) await connection.execute('DELETE FROM sessions WHERE token_hash=?', [expiredTokenHash]).catch(() => {});
     if (absoluteTokenHash) await connection.execute('DELETE FROM sessions WHERE token_hash=?', [absoluteTokenHash]).catch(() => {});
+    for (const sessionHash of budgetSessionHashes) await connection.execute('DELETE FROM sessions WHERE token_hash=?', [sessionHash]).catch(() => {});
     if (securityUserId) await connection.execute('DELETE FROM users WHERE id=?', [securityUserId]).catch(() => {});
     if (supervisorTokenHash) await connection.execute('DELETE FROM sessions WHERE token_hash=?', [supervisorTokenHash]).catch(() => {});
+    if (budgetRequestId) await connection.execute('DELETE FROM budget_requests WHERE id=?', [budgetRequestId]).catch(() => {});
+    if (budgetApprovalRequestId) await connection.execute('DELETE FROM budget_requests WHERE id=?', [budgetApprovalRequestId]).catch(() => {});
+    if (originalBudgetLimit !== null) await connection.execute("UPDATE app_settings SET setting_value=?,updated_by=NULL,updated_at='' WHERE setting_key='budget_chair_approval_limit'", [String(originalBudgetLimit)]).catch(() => {});
     if (temporaryFiscalYear) {
       await connection.execute('DELETE FROM targets WHERE target_year=?', [temporaryFiscalYear]).catch(() => {});
       await connection.execute('DELETE FROM fiscal_years WHERE fiscal_year=?', [temporaryFiscalYear]).catch(() => {});

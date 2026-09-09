@@ -9,23 +9,18 @@
     const header = table?.querySelector('thead tr');
     if (!body || !header) return;
     const allowed = canViewOrigin();
-    let originHead = header.querySelector('[data-finance-origin]');
-    if (allowed) {
-      if (!originHead) {
-        originHead = header.children.length >= 9 ? header.lastElementChild : document.createElement('th');
-        if (!originHead.isConnected) header.append(originHead);
-        originHead.dataset.financeOrigin = '1';
-      }
+    const originIndex = [...header.children].findIndex(cell => ['Unit', 'Asal unit/divisi'].includes(cell.textContent.trim()));
+    const originHead = originIndex >= 0 ? header.children[originIndex] : null;
+    if (originHead) {
       originHead.textContent = 'Asal unit/divisi';
-    } else {
-      if (!originHead && header.children.length >= 9) originHead = header.lastElementChild;
-      originHead?.remove();
-      body.querySelectorAll('tr').forEach(row => {
-        if (row.children.length >= 9) row.lastElementChild.remove();
-        const empty = row.querySelector('.empty-row');
-        if (empty) empty.colSpan = 8;
-      });
+      originHead.hidden = !allowed;
     }
+    body.querySelectorAll('tr').forEach(row => {
+      const originCell = originIndex >= 0 ? row.children[originIndex] : null;
+      if (originCell && !originCell.classList.contains('empty-row')) originCell.hidden = !allowed;
+      const empty = row.querySelector('.empty-row');
+      if (empty) empty.colSpan = allowed ? 10 : 9;
+    });
   };
 
   const previousLoadFinances = loadFinances;

@@ -19,12 +19,12 @@
   loadTargets = async () => {
     await loadTargetsWithScope();
     const ownTargets = currentReportItems.filter(item => item.division === currentUser.division && item.target_type !== 'uang');
-    const weekly = document.getElementById('weeklyTarget');
-    if (weekly) weekly.innerHTML = ownTargets.map(item => `<option value="${item.id}">${item.program}</option>`).join('');
     updatePrograms(ownTargets);
-    document.querySelectorAll('#targetGrid .target-card').forEach((card,index) => {
+    const canManageAllTargets = ['ketua', 'sekretaris'].includes(currentUser.role);
+    document.querySelectorAll('#targetGrid .target-card').forEach(card => {
       const edit = card.querySelector('.target-edit');
-      if (edit && currentReportItems[index]?.division !== currentUser.division) edit.remove();
+      const target = edit && currentReportItems.find(item => Number(item.id) === Number(edit.dataset.editTarget));
+      if (edit && (!target || (!canManageAllTargets && target.division !== currentUser.division))) edit.remove();
     });
   };
 })();

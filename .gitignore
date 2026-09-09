@@ -14,3 +14,4 @@ backups/
 deploy/
 *.zip
 *.sql
+!database/mysql-schema.sql

@@ -18,6 +18,7 @@
       <article class="card"><span>Program Dipantau</span><strong id="supervisorPrograms">0</strong><small>Seluruh program aktif</small></article>
       <article class="card"><span>Perlu Tindak Lanjut</span><strong id="supervisorAttention">0</strong><small>Capaian di bawah 70%</small></article>
       <article class="card"><span>Saldo Periode</span><strong id="supervisorBalance">Rp 0</strong><small>Pemasukan dikurangi kas keluar</small></article>
+      <article class="card"><span>Rasio Biaya Operasional Lembaga</span><strong id="supervisorExpenseRatio">0%</strong><small id="supervisorExpenseRatioNote">Biaya lembaga terhadap total donasi</small></article>
     </div>
     <div class="supervisor-charts">
       <article class="card"><div class="card-head"><h4>Capaian Target per Unit</h4><span class="pill blue" id="supervisorPeriod">Bulan berjalan</span></div><div class="supervisor-canvas"><canvas id="supervisorUnitChart"></canvas></div></article>
@@ -33,10 +34,13 @@
     const query = new URLSearchParams({
       date_from: selected.from, date_to: selected.to, mode: byId('period').value
     });
-    const data = await api('/api/supervisor-dashboard-range?' + query.toString());
+    const [data, efficiency] = await Promise.all([
+      api('/api/supervisor-dashboard-range?' + query.toString()),
+      api('/api/dashboard/financial-efficiency?' + query.toString())
+    ]);
     const rupiahCompact = value => new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0,notation:'compact'}).format(value||0);
     const fundTarget=data.units.reduce((sum,item)=>sum+Number(item.money_target||0),0),fundActual=data.units.reduce((sum,item)=>sum+Number(item.money_actual||0),0),fundAchievement=fundTarget?Math.round(fundActual/fundTarget*100):0;
-    byId('supervisorOverall').textContent=data.summary.achievement+'%';byId('supervisorFundTarget').textContent=rupiah(fundTarget);byId('supervisorFundActual').textContent=rupiah(fundActual);byId('supervisorFundAchievement').textContent=fundAchievement+'%';byId('supervisorActualNote').textContent=fundAchievement+'% dari target dana';byId('supervisorTargetPeriod').textContent=data.period_label;byId('supervisorPrograms').textContent=data.summary.programs;byId('supervisorAttention').textContent=data.summary.attention;byId('supervisorBalance').textContent=rupiah(data.summary.balance);byId('supervisorPeriod').textContent=data.period_label;
+    byId('supervisorOverall').textContent=data.summary.achievement+'%';byId('supervisorFundTarget').textContent=rupiah(fundTarget);byId('supervisorFundActual').textContent=rupiah(fundActual);byId('supervisorFundAchievement').textContent=fundAchievement+'%';byId('supervisorActualNote').textContent=fundAchievement+'% dari target dana';byId('supervisorTargetPeriod').textContent=data.period_label;byId('supervisorPrograms').textContent=data.summary.programs;byId('supervisorAttention').textContent=data.summary.attention;byId('supervisorBalance').textContent=rupiah(data.summary.balance);byId('supervisorExpenseRatio').textContent=Number(efficiency.ratio||0).toLocaleString('id-ID',{maximumFractionDigits:1})+'%';byId('supervisorExpenseRatioNote').textContent=`${rupiah(efficiency.expense)} dari ${rupiah(efficiency.income)} donasi`;byId('supervisorPeriod').textContent=data.period_label;
     window.updateSideAchievement?.(data.summary.achievement,data.summary.programs,data.period_label,'lembaga');
     byId('supervisorRows').innerHTML=data.units.map(x=>`<tr><td><b>${escapeHtml(x.division)}</b></td><td>${x.programs}</td><td>${rupiah(x.money_target)}</td><td>${rupiah(x.money_actual)}</td><td><b>${x.achievement}%</b></td><td><span class="pill ${x.achievement>=85?'green':x.achievement>=70?'yellow':'red'}">${x.achievement>=85?'Baik':x.achievement>=70?'Hampir':'Perlu perhatian'}</span></td></tr>`).join('');
     if(!window.Chart)return;supervisorBar?.destroy();supervisorPie?.destroy();supervisorFinance?.destroy();

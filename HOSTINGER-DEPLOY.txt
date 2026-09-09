@@ -1,6 +1,6 @@
 DDU APP - PETUNJUK DEPLOY HOSTINGER
 
-PAKET 1: dduapp-hostinger-ready-v2.zip
+PAKET APLIKASI: dduapp-hostinger-ready-v11.zip
 Upload melalui Deploy Aplikasi Web Node.js > Upload file.
 
 Konfigurasi:
@@ -24,20 +24,20 @@ DB_USER=<nama lengkap pengguna database dari hPanel>
 DB_PASSWORD=<password database>
 DB_SSL=0
 
-PAKET 2: dduapp-database-import.zip
-Ekstrak dahulu bila phpMyAdmin tidak menerima ZIP, lalu impor
-dduapp-mysql-import.sql ke database MySQL kosong melalui phpMyAdmin.
-
 Urutan aman:
 1. Buat database dan pengguna MySQL di hPanel.
-2. Impor dduapp-mysql-import.sql melalui phpMyAdmin.
-3. Upload dan deploy dduapp-hostinger.zip.
-4. Isi environment variables.
-5. Buka /api/health; hasil yang benar memuat database=mysql dan ok=true.
-6. Login dan ganti kata sandi akun bila diperlukan.
+2. Untuk instalasi baru saja, impor database/mysql-schema.sql melalui phpMyAdmin.
+3. Untuk pembaruan aplikasi dengan database yang sudah berisi data, jangan impor ulang database.
+4. Upload dan deploy dduapp-hostinger-ready-v11.zip.
+5. Isi atau pertahankan environment variables di hPanel.
+6. Buka /api/health; hasil yang benar memuat database=mysql dan ok=true.
+7. Login dan uji dashboard, Input Realisasi, serta unduhan template Excel.
 
 Pembaruan tahun buku:
 - Kolom target_year dan tabel fiscal_years dibuat otomatis saat aplikasi pertama kali dijalankan.
+- Tabel pengaturan dan kolom batas persetujuan anggaran dibuat otomatis saat aplikasi terbaru dijalankan.
+- Tabel academic_years, donor_class_assignments, serta kolom jenjang/kelas/tahun ajaran dibuat otomatis saat aplikasi terbaru dijalankan.
+- Relasi transaksi ke profil donatur dan pembukuan penggunaan anggaran dimigrasikan otomatis saat aplikasi terbaru dijalankan.
 - Jangan mengimpor ulang database lama ke database produksi yang sudah berisi data.
 - Setelah deploy, buka Program & Target dan pastikan tahun berjalan berstatus Berjalan.
 

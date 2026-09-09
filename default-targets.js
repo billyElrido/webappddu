@@ -46,7 +46,7 @@ const targets = [
   ['Divisi 3','Konten Program PHBI / Event Besar Tahunan','aktivitas','tahunan',1,'event','Target dibuat untuk setiap event besar tahunan.'],
   ['Divisi 3','Laporan penyaluran','aktivitas','bulanan',1,'laporan','Laporan wajib untuk setiap program penyaluran.'],
   ['Divisi 3','Penambahan Data Donatur / Calon','jumlah','bulanan',30,'donatur','Target 30 data per bulan.'],
-  ['Divisi 3','Live Stream (Daily Activity & Jumat Berkah)','jumlah','mingguan',2,'live stream','Target minimum 2; rentang sasaran 2-3 live stream per minggu.'],
+  ['Divisi 3','Live Stream Daily Activity & Jumat Berkah','jumlah','mingguan',2,'live stream','Target minimum 2; rentang sasaran 2-3 live stream per minggu.'],
   ['Divisi 3','Khotm Al-Quran','aktivitas','bulanan',1,'kegiatan','Target 1 kali per bulan.']
 ];
 
@@ -54,6 +54,7 @@ async function seedDefaultTargets({ q, now }) {
   const timestamp = now();
   const targetYear = Number(timestamp.slice(0, 4));
   await q("UPDATE targets SET active=0 WHERE division='Divisi 2' AND program IN ('Proposal - Surat terkirim','Proposal & Surat terkirim')");
+  await mergeDuplicateLiveStreamTargets(q);
   let inserted = 0;
   for (const [division, program, targetType, period, value, unit, note] of targets) {
     const users = await q('SELECT id FROM users WHERE division=? AND active=1 ORDER BY id LIMIT 1', [division]);
@@ -65,6 +66,26 @@ async function seedDefaultTargets({ q, now }) {
     inserted++;
   }
   return inserted;
+}
+
+async function mergeDuplicateLiveStreamTargets(q) {
+  const preferred = 'Live Stream Daily Activity & Jumat Berkah';
+  const duplicate = 'Live Stream (Daily Activity & Jumat Berkah)';
+  const duplicates = await q("SELECT id,target_year FROM targets WHERE division='Divisi 3' AND program=? AND active=1 ORDER BY target_year,id", [duplicate]);
+  for (const item of duplicates) {
+    const existing = await q("SELECT id FROM targets WHERE division='Divisi 3' AND program=? AND target_year=? AND active=1 ORDER BY id LIMIT 1", [preferred, item.target_year]);
+    if (!existing[0]) {
+      await q('UPDATE targets SET program=? WHERE id=?', [preferred, item.id]);
+      continue;
+    }
+    const keepId = existing[0].id;
+    await q(`DELETE duplicate_report FROM weekly_reports duplicate_report
+      JOIN weekly_reports kept_report ON kept_report.target_id=? AND kept_report.week_start=duplicate_report.week_start
+      WHERE duplicate_report.target_id=?`, [keepId, item.id]);
+    await q('UPDATE weekly_reports SET target_id=? WHERE target_id=?', [keepId, item.id]);
+    await q('UPDATE targets SET active=0 WHERE id=?', [item.id]);
+  }
+  await q("UPDATE realizations SET program=? WHERE division='Divisi 3' AND program=?", [preferred, duplicate]);
 }
 
 module.exports = { targets, seedDefaultTargets };
